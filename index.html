@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bot User Agent Viewer</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: #121212; color: #eee; }
+        .toolbar { padding: 12px; background: #1f1f1f; display: flex; gap: 10px; border-bottom: 1px solid #333; }
+        input { flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #444; background: #2b2b2b; color: #fff; outline: none; }
+        button { padding: 10px 20px; cursor: pointer; background: #0078d4; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        #main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .pane-header { background: #1f1f1f; padding: 6px 20px; font-size: 11px; color: #888; text-transform: uppercase; border-top: 1px solid #333; }
+        #visual-pane { flex: 1.5; background: white; position: relative; }
+        iframe { width: 100%; height: 100%; border: none; }
+        #text-pane { flex: 1; background: #181818; overflow-y: auto; padding: 20px; border-top: 1px solid #444; }
+        pre { white-space: pre-wrap; line-height: 1.5; margin: 0; font-size: 14px; color: #ccc; }
+        #status-msg { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 4px; font-size: 12px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <input type="text" id="urlInput" placeholder="Enter URL (e.g. youtube.com)">
+        <button onclick="loadPage()">Run Smart Fetch</button>
+    </div>
+    <div id="main-content">
+        <div id="visual-pane">
+            <div id="status-msg"></div>
+            <iframe id="viewerFrame"></iframe>
+        </div>
+        <div class="pane-header">Extracted Text View</div>
+        <div id="text-pane"><pre id="textOutput">Ready...</pre></div>
+    </div>
+
+    <script>
+        const PROXY_BASE = "http://localhost:3000/proxy?url=";
+        let currentUrl = "";
+        let fallbackTimer = null;
+
+        async function loadPage(url = document.getElementById('urlInput').value.trim(), stripScripts = false) {
+            const frame = document.getElementById('viewerFrame');
+            const textOutput = document.getElementById('textOutput');
+            const status = document.getElementById('status-msg');
+            
+            currentUrl = url.startsWith('http') ? url : "https://" + url;
+            document.getElementById('urlInput').value = currentUrl;
+            
+            status.style.display = "block";
+            status.innerText = stripScripts ? "Fallback: Loading without scripts..." : "Attempting full load...";
+
+            try {
+                const response = await fetch(PROXY_BASE + encodeURIComponent(currentUrl));
+                const content = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(content, 'text/html');
+
+                if (stripScripts) {
+                    doc.querySelectorAll('script').forEach(s => s.remove());
+                }
+
+                const baseTag = `<base href="${currentUrl}">`;
+                const hijack = `<script>
+                    window.onerror = function() { window.parent.postMessage({type: 'error'}, '*'); };
+                    document.onclick = (e) => {
+                        const a = e.target.closest('a');
+                        if (a && a.href) {
+                            e.preventDefault();
+                            window.parent.postMessage({type: 'nav', url: a.href}, '*');
+                        }
+                    };
+                <\/script>`;
+
+                const finalHtml = baseTag + doc.documentElement.outerHTML + hijack;
+                const blob = new Blob([finalHtml], { type: 'text/html' });
+                frame.src = URL.createObjectURL(blob);
+
+                // Update text view immediately
+                textOutput.innerText = doc.body ? doc.body.innerText : "No text found.";
+
+                // Start fallback timer if we haven't stripped scripts yet
+                clearTimeout(fallbackTimer);
+                if (!stripScripts) {
+                    fallbackTimer = setTimeout(() => {
+                        console.warn("Load took too long, switching to fallback...");
+                        loadPage(currentUrl, true);
+                    }, 4000); // 4 second threshold
+                }
+
+                frame.onload = () => {
+                    clearTimeout(fallbackTimer);
+                    status.innerText = stripScripts ? "Loaded (Scripts Stripped)" : "Loaded Successfully";
+                    setTimeout(() => status.style.display = "none", 2000);
+                };
+
+            } catch (err) {
+                textOutput.innerText = "Error: " + err.message;
+            }
+        }
+
+        // Listen for crashes or link navigation from inside the iframe
+        window.addEventListener('message', e => {
+            if (e.data.type === 'nav') loadPage(e.data.url);
+            if (e.data.type === 'error') {
+                console.error("Iframe script error detected. Triggering fallback...");
+                loadPage(currentUrl, true);
+            }
+        });
+
+        document.getElementById('urlInput').addEventListener('keypress', e => { if(e.key === 'Enter') loadPage(); });
+    </script>
+</body>
+</html>
