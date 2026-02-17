@@ -4,7 +4,7 @@ There are absolutely no viruses in this file, do not worry! (:
 Open the VBS first, which quickly runs Command Prompt to run the user agent.
 If you have ran it, and are confused what to do when the HTML file is open,
 then, in the "Enter URL (e.g. youtube.com)" placeholder, type a URL to get it.
------------------------------------------
+
 If you run, and get an error, here is every bad error,
 every other error should be good:
 4xx: Client Errors (You Might Be Doing Something Wrong) 
@@ -18,7 +18,7 @@ The server understood the request but cannot process it due to an error on the u
 408 Request Timeout: Your browser took too long to send the request.
 429 Too Many Requests: You are hitting the server too fast; please slow down.
 451 Unavailable For Legal Reasons: The content is blocked due to censorship or legal orders. 
------------------------------------------
+
 5xx: Server Errors (The Website Broke) 
 
 The request was valid, but the server failed to fulfill it. 
