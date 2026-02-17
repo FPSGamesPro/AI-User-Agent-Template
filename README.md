@@ -1,6 +1,9 @@
 # AI-User-Agent-Template
 There are absolutely no viruses in this file, do not worry! (:
 
+Instructions:
+-----
+
 Open the VBS first, which quickly runs Command Prompt to run the user agent.
 If you have ran it, and are confused what to do when the HTML file is open,
 then, in the "Enter URL (e.g. youtube.com)" placeholder, type a URL to get it.
